@@ -55,6 +55,7 @@ export function hydrateStore(): void {
     state = buildSeed();
   }
   sweepExpirations(state);
+  hydrated = true;
   persist();
   emit();
 }
@@ -80,14 +81,7 @@ export function snapshot(): AppState {
 }
 
 export function useAppState(): AppState {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    getState,
-    getServerSnapshot,
-  );
+  return useSyncExternalStore(subscribe, getState, getServerSnapshot);
 }
 
 export function getVerifierEmail(): string | null {
