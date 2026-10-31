@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CoursesRouteImport } from './routes/courses'
+import { Route as LearnerRouteImport } from './routes/learner'
 import { Route as EvidenceCertIdRouteImport } from './routes/evidence.$certId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const CoursesRoute = CoursesRouteImport.update({
   path: '/courses',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LearnerRoute = LearnerRouteImport.update({
+  id: '/learner',
+  path: '/learner',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EvidenceCertIdRoute = EvidenceCertIdRouteImport.update({
   id: '/evidence/$certId',
   path: '/evidence/$certId',
@@ -32,30 +38,34 @@ const EvidenceCertIdRoute = EvidenceCertIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/courses': typeof CoursesRoute
+  '/learner': typeof LearnerRoute
   '/evidence/$certId': typeof EvidenceCertIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/courses': typeof CoursesRoute
+  '/learner': typeof LearnerRoute
   '/evidence/$certId': typeof EvidenceCertIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/courses': typeof CoursesRoute
+  '/learner': typeof LearnerRoute
   '/evidence/$certId': typeof EvidenceCertIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/courses' | '/evidence/$certId'
+  fullPaths: '/' | '/courses' | '/learner' | '/evidence/$certId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/courses' | '/evidence/$certId'
-  id: '__root__' | '/' | '/courses' | '/evidence/$certId'
+  to: '/' | '/courses' | '/learner' | '/evidence/$certId'
+  id: '__root__' | '/' | '/courses' | '/learner' | '/evidence/$certId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CoursesRoute: typeof CoursesRoute
+  LearnerRoute: typeof LearnerRoute
   EvidenceCertIdRoute: typeof EvidenceCertIdRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoursesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/learner': {
+      id: '/learner'
+      path: '/learner'
+      fullPath: '/learner'
+      preLoaderRoute: typeof LearnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/evidence/$certId': {
       id: '/evidence/$certId'
       path: '/evidence/$certId'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CoursesRoute: CoursesRoute,
+  LearnerRoute: LearnerRoute,
   EvidenceCertIdRoute: EvidenceCertIdRoute,
 }
 export const routeTree = rootRouteImport
