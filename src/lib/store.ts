@@ -8,7 +8,24 @@ const VERIFIER_EMAIL_KEY = "c180-verifier-email";
 
 let state: AppState | null = null;
 let serverSnapshot: AppState | null = null;
+let hydrated = false;
 const listeners = new Set<() => void>();
+const subscribe = (cb: () => void) => {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+};
+
+/** True once localStorage has been loaded on the client. */
+export function useStoreHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => hydrated,
+    () => false,
+  );
+}
+
 
 function getState(): AppState {
   if (!state) state = buildSeed();
