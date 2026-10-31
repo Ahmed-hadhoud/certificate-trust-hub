@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as LearnerRouteImport } from './routes/learner'
 import { Route as EvidenceCertIdRouteImport } from './routes/evidence.$certId'
@@ -17,6 +18,11 @@ import { Route as EvidenceCertIdRouteImport } from './routes/evidence.$certId'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CoursesRoute = CoursesRouteImport.update({
@@ -37,12 +43,14 @@ const EvidenceCertIdRoute = EvidenceCertIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/courses': typeof CoursesRoute
   '/learner': typeof LearnerRoute
   '/evidence/$certId': typeof EvidenceCertIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/courses': typeof CoursesRoute
   '/learner': typeof LearnerRoute
   '/evidence/$certId': typeof EvidenceCertIdRoute
@@ -50,20 +58,23 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/courses': typeof CoursesRoute
   '/learner': typeof LearnerRoute
   '/evidence/$certId': typeof EvidenceCertIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/courses' | '/learner' | '/evidence/$certId'
+  fullPaths: '/' | '/admin' | '/courses' | '/learner' | '/evidence/$certId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/courses' | '/learner' | '/evidence/$certId'
-  id: '__root__' | '/' | '/courses' | '/learner' | '/evidence/$certId'
+  to: '/' | '/admin' | '/courses' | '/learner' | '/evidence/$certId'
+  id:
+    '__root__' | '/' | '/admin' | '/courses' | '/learner' | '/evidence/$certId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   CoursesRoute: typeof CoursesRoute
   LearnerRoute: typeof LearnerRoute
   EvidenceCertIdRoute: typeof EvidenceCertIdRoute
@@ -76,6 +87,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/courses': {
@@ -104,6 +122,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   CoursesRoute: CoursesRoute,
   LearnerRoute: LearnerRoute,
   EvidenceCertIdRoute: EvidenceCertIdRoute,
