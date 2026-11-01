@@ -440,6 +440,14 @@ function RequestsInbox({
         </h2>
         <Badge variant={pending ? "warning" : "muted"}>{pending} pending</Badge>
       </div>
+      <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-2.5">
+        <Badge variant="muted" className="shrink-0">
+          Sample
+        </Badge>
+        <p className="text-[11px] leading-5 text-muted-foreground">
+          Sample of the access-request popup. It shows the same live request as the banner above.
+        </p>
+      </div>
       {requests.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">
           No one has asked to see this learner&apos;s results yet.
