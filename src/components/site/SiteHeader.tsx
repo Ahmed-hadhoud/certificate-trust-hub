@@ -3,9 +3,7 @@ import { Logo } from "./Logo";
 
 const NAV = [
   { to: "/", label: "Verify" },
-  { to: "/courses", label: "Courses" },
   { to: "/learner", label: "Learner" },
-  { to: "/admin", label: "Admin" },
 ] as const;
 
 export function SiteHeader() {

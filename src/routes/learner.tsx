@@ -1,42 +1,51 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AlertCircle, ArrowUpCircle, Bell, Check, Inbox, Lock, RotateCcw, Sparkles, X } from "lucide-react";
+import {
+  Bell,
+  Check,
+  ChevronRight,
+  Clock3,
+  Download,
+  Eye,
+  Inbox,
+  Linkedin,
+  Share2,
+  ShieldCheck,
+  UserRound,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { act, useAppState, useStoreHydrated } from "@/lib/store";
 import {
   decideRequest,
   dismissPolicyBanner,
   markPolicyBannerSeen,
-  retakeCourse,
   setSharing,
-  simulateFailedAttempt,
-  simulatePassRemaining,
-  upgradeLegacy,
 } from "@/lib/actions";
-import {
-  attemptsLeft,
-  currentVersion,
-  effectiveStatus,
-  finalGrade,
-  formatDate,
-  isLocked,
-  isPassed,
-  itemsFor,
-  itemTypeLabel,
-  latestPolicy,
-  missingItems,
-  requestExpiry,
-  requiredItems,
-} from "@/lib/domain";
-import type { AppState, Certificate, Learner } from "@/lib/types";
+import { addDays, effectiveStatus, formatDate, latestPolicy, requestExpiry } from "@/lib/domain";
+import type { AccessRequest, AppState, Certificate, Learner } from "@/lib/types";
+import { CertificatePreview } from "@/components/verify/CertificatePreview";
 import { LevelBadge } from "@/components/verify/LevelBadge";
 import { NewerVersionNotice, SourceBadge } from "@/components/verify/ResultPanels";
-import { BandBadge, StatusBadge } from "@/components/site/StatusBadges";
+import { StatusBadge } from "@/components/site/StatusBadges";
 
 type Search = { learner?: string };
 
@@ -46,9 +55,15 @@ export const Route = createFileRoute("/learner")({
   head: () => ({
     meta: [
       { title: "Learner area · Career-180" },
-      { name: "description", content: "Your certificate level, missing items, sharing setting and access requests." },
+      {
+        name: "description",
+        content: "Your certificate, sharing settings and access requests.",
+      },
       { property: "og:title", content: "Learner area · Career-180" },
-      { property: "og:description", content: "Track your Career-180 certificate and who can see your results." },
+      {
+        property: "og:description",
+        content: "Track your Career-180 certificate and who can see your results.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -58,31 +73,78 @@ export const Route = createFileRoute("/learner")({
 
 function LearnerPage() {
   const s = useAppState();
-  const { learner: learnerId = "L04" } = Route.useSearch();
+  const search = Route.useSearch();
   const navigate = useNavigate({ from: "/learner" });
-  const learner = s.learners.find((l) => l.id === learnerId) ?? s.learners[0]!;
-  const cert = s.certificates.find((c) => c.learnerId === learner.id)!;
+  const [certificateOpen, setCertificateOpen] = useState(false);
+
+  const pendingLearnerId = s.accessRequests.find(
+    (request) => effectiveStatus(request, s.today) === "pending",
+  )?.learnerId;
+  // Keep the demo learner stable: approving a request must not jump to someone else.
+  const [defaultLearnerId] = useState(
+    () => search.learner ?? pendingLearnerId ?? s.learners[0]!.id,
+  );
+  const learner =
+    s.learners.find((entry) => entry.id === (search.learner ?? defaultLearnerId)) ?? s.learners[0]!;
+  const cert = s.certificates.find((entry) => entry.learnerId === learner.id);
+  const requests = s.accessRequests
+    .filter((request) => request.learnerId === learner.id)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const pendingRequests = requests.filter(
+    (request) => effectiveStatus(request, s.today) === "pending",
+  );
+
+  useEffect(() => {
+    setCertificateOpen(false);
+  }, [learner.id]);
+
+  const courseNameForRequest = (request: AccessRequest) => {
+    const requestCert = s.certificates.find((entry) => entry.id === request.certId);
+    const requestCourse = requestCert
+      ? s.courses.find((entry) => entry.id === requestCert.courseId)
+      : undefined;
+    return requestCourse?.name ?? requestCert?.courseId ?? "Course";
+  };
+
+  const approveRequest = (request: AccessRequest) => {
+    act((draft) => decideRequest(draft, request.id, true));
+    toast.success(`Access approved until ${formatDate(addDays(s.today, 14))}.`);
+  };
+
+  const declineRequest = (request: AccessRequest) => {
+    act((draft) => decideRequest(draft, request.id, false));
+    toast("Access request declined.");
+  };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-24 pt-10">
+    <div className="mx-auto max-w-6xl px-4 pb-24 pt-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Learner area · demo</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+            Learner area · demo view
+          </p>
           <h1 className="mt-2 text-3xl font-bold sm:text-4xl">{learner.name}</h1>
-          <div className="mt-2">
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            This is the learner side of Career-180: the certificate they earned, who can see their
+            results, and every request for access.
+          </p>
+          <div className="mt-3">
             <SourceBadge company={learner.company} />
           </div>
         </div>
         <div className="grid w-full gap-1.5 sm:w-72">
-          <Label>Demo login</Label>
-          <Select value={learner.id} onValueChange={(v) => void navigate({ search: { learner: v } })}>
+          <Label>Demo learner login</Label>
+          <Select
+            value={learner.id}
+            onValueChange={(value) => void navigate({ search: { learner: value } })}
+          >
             <SelectTrigger aria-label="Choose learner">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {s.learners.map((l) => (
-                <SelectItem key={l.id} value={l.id}>
-                  {l.name} · {s.certificates.find((c) => c.learnerId === l.id)?.id}
+              {s.learners.map((entry) => (
+                <SelectItem key={entry.id} value={entry.id}>
+                  {entry.name} · {s.certificates.find((item) => item.learnerId === entry.id)?.id}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -90,17 +152,126 @@ function LearnerPage() {
         </div>
       </div>
 
+      <DemoBanner learner={learner} />
+
+      {pendingRequests[0] && (
+        <PendingRequestSpotlight
+          request={pendingRequests[0]}
+          courseName={courseNameForRequest(pendingRequests[0])}
+          today={s.today}
+          onApprove={() => approveRequest(pendingRequests[0]!)}
+          onDecline={() => declineRequest(pendingRequests[0]!)}
+        />
+      )}
+
       <PolicyBanner s={s} learner={learner} />
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">
-          <CertificateCard s={s} cert={cert} />
-          <ItemsCard s={s} cert={cert} />
-        </div>
-        <div className="space-y-5">
+          {cert ? (
+            <CertificatesCard cert={cert} s={s} onOpen={() => setCertificateOpen(true)} />
+          ) : (
+            <section className="panel p-6 text-sm text-muted-foreground">
+              No certificate is attached to this learner yet.
+            </section>
+          )}
           <SharingCard learner={learner} />
-          <RequestsInbox s={s} learner={learner} />
         </div>
+        <div className="space-y-5">
+          <RequestsInbox
+            requests={requests}
+            today={s.today}
+            courseNameForRequest={courseNameForRequest}
+            onApprove={approveRequest}
+            onDecline={declineRequest}
+          />
+        </div>
+      </div>
+
+      {cert && (
+        <CertificateDialog
+          cert={cert}
+          s={s}
+          open={certificateOpen}
+          onOpenChange={setCertificateOpen}
+        />
+      )}
+    </div>
+  );
+}
+
+function DemoBanner({ learner }: { learner: Learner }) {
+  return (
+    <div className="panel-info mt-6 flex items-start gap-3.5 p-4 sm:p-5">
+      <div className="grid h-9 w-9 flex-none place-items-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+        <UserRound className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold">You are demoing as a learner</p>
+          <Badge variant="info">Learner view</Badge>
+        </div>
+        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+          You are seeing <span className="font-semibold text-foreground">{learner.name}</span>
+          &apos;s own certificate. Open it to view, download or add it to LinkedIn, choose what
+          employers can see, and review access requests below.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PendingRequestSpotlight({
+  request,
+  courseName,
+  today,
+  onApprove,
+  onDecline,
+}: {
+  request: AccessRequest;
+  courseName: string;
+  today: string;
+  onApprove: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-warning/35 bg-warning/[0.07] p-4 shadow-card sm:flex-row sm:items-start sm:justify-between sm:p-5">
+      <div className="flex items-start gap-3.5">
+        <div className="grid h-9 w-9 flex-none place-items-center rounded-xl border border-warning/30 bg-warning/10 text-warning">
+          <Bell className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold">{request.requester} requested access</p>
+            <Badge variant="warning">
+              <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-warning" />
+              Pending approval
+            </Badge>
+          </div>
+          <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+            <span className="font-semibold text-foreground">{request.email}</span> from{" "}
+            <span className="font-semibold text-foreground">{request.requester}</span> asked to view
+            the results for <span className="font-semibold text-foreground">{courseName}</span>.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            <Clock3 className="h-3 w-3" />
+            Sent {formatDate(request.createdAt)} · {sentLabel(request.createdAt, today)}
+            <span className="opacity-40">·</span>
+            <span>Certificate {request.certId}</span>
+          </div>
+          <p className="mt-2 max-w-xl text-[11px] leading-5 text-warning/70">
+            Approving shares the assessment evidence for 14 days. Validity and level stay visible
+            either way.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-none gap-2 sm:pl-4">
+        <Button size="sm" variant="success" onClick={onApprove}>
+          <Check /> Approve
+        </Button>
+        <Button size="sm" variant="outline" onClick={onDecline}>
+          <X /> Decline
+        </Button>
       </div>
     </div>
   );
@@ -115,16 +286,17 @@ function PolicyBanner({ s, learner }: { s: AppState; learner: Learner }) {
   }, [hydrated, show, learner.id]);
   if (!show) return null;
   return (
-    <div className="panel-info mt-6 flex gap-3 p-4">
+    <div className="panel-info mt-5 flex gap-3 p-4">
       <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
       <div className="flex-1 text-sm">
         <p className="font-semibold">
-          Our certificate policy changed: v{latest.version} · {latest.name} (from {formatDate(latest.effectiveFrom)})
+          Our certificate policy changed: v{latest.version} · {latest.name} (from{" "}
+          {formatDate(latest.effectiveFrom)})
         </p>
         <p className="mt-1 text-muted-foreground">{latest.summary}</p>
         <p className="mt-2 text-muted-foreground">
-          This is for your information only; nothing changes on your certificate. You can review who sees your
-          results in the{" "}
+          This is for your information only; nothing changes on your certificate. You can review who
+          sees your results in the{" "}
           <a href="#sharing" className="text-primary underline-offset-4 hover:underline">
             sharing setting
           </a>
@@ -142,283 +314,171 @@ function PolicyBanner({ s, learner }: { s: AppState; learner: Learner }) {
   );
 }
 
-function CertificateCard({ s, cert }: { s: AppState; cert: Certificate }) {
-  const course = s.courses.find((c) => c.id === cert.courseId)!;
+function CertificatesCard({
+  s,
+  cert,
+  onOpen,
+}: {
+  s: AppState;
+  cert: Certificate;
+  onOpen: () => void;
+}) {
+  const course = s.courses.find((entry) => entry.id === cert.courseId)!;
   return (
     <section className="panel p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Your certificate</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+            Your certificates
+          </p>
           <h2 className="mt-1 text-xl font-semibold">{course.name}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            ID <span className="font-mono text-foreground">{cert.id}</span> · Code{" "}
-            <span className="font-mono text-foreground">{cert.code}</span> · v{cert.courseVersion} · Issued{" "}
-            {formatDate(cert.issuedAt)}
+            Certificate ID <span className="font-mono text-foreground">{cert.id}</span> · v
+            {cert.courseVersion} · Issued {formatDate(cert.issuedAt)}
           </p>
         </div>
         <LevelBadge state={cert.state} />
       </div>
+
       <div className="mt-4 space-y-3">
         <NewerVersionNotice cert={cert} s={s} />
         {cert.state === "Revoked" && (
           <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
-            This certificate was revoked on {formatDate(cert.revoked?.date ?? "")}. Revocation is final.
+            This certificate was revoked on {formatDate(cert.revoked?.date ?? "")}. Revocation is
+            final.
           </p>
         )}
       </div>
-      <div className="mt-4">
-        <Button asChild variant="outline" size="sm">
+
+      <div className="mt-5 grid gap-3 rounded-xl border border-border bg-muted/40 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-gradient-brand text-primary-foreground shadow-brand">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-medium">Your certificate is ready to view</p>
+            <p className="text-xs text-muted-foreground">
+              Preview it, download it or share it on LinkedIn. These actions are mocked in the
+              prototype.
+            </p>
+          </div>
+        </div>
+        <Button variant="brand" size="sm" onClick={onOpen}>
+          <Eye /> View certificate
+        </Button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+        <Button asChild variant="ghost" size="sm" className="px-0 text-muted-foreground">
           <Link to="/" search={{ q: cert.id }}>
-            See what a verifier sees
+            See what a verifier sees <ChevronRight />
           </Link>
         </Button>
       </div>
-      {cert.state === "Legacy" && <LegacyUpgrade s={s} cert={cert} />}
     </section>
-  );
-}
-
-function LegacyUpgrade({ s, cert }: { s: AppState; cert: Certificate }) {
-  const course = s.courses.find((c) => c.id === cert.courseId)!;
-  const cur = currentVersion(course);
-  const items = itemsFor(course, cur.required);
-  return (
-    <div className="mt-5 rounded-xl border border-warning/40 bg-warning/5 p-4">
-      <p className="flex items-center gap-2 font-semibold">
-        <ArrowUpCircle className="h-4 w-4 text-warning" /> Upgrade for free
-      </p>
-      {items.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          This course has no assessment, so there is nothing to pass. Your certificate stays Legacy.
-        </p>
-      ) : (
-        <>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Pass every required item of the current version (v{cur.version}) with 70% or more. Your certificate keeps
-            ID {cert.id}; the issue date becomes the upgrade date.
-          </p>
-          <ul className="mt-3 space-y-1 text-sm">
-            {items.map((i) => (
-              <li key={i.key}>
-                • {i.label} · {i.skill} <span className="text-muted-foreground">({itemTypeLabel(i)})</span>
-              </li>
-            ))}
-          </ul>
-          <Button
-            variant="brand"
-            size="sm"
-            className="mt-4"
-            onClick={() => {
-              act((d) => upgradeLegacy(d, cert.id));
-              toast.success(`Upgraded to Verified. Same ID ${cert.id}.`);
-            }}
-          >
-            <Sparkles /> Simulate passing all
-          </Button>
-        </>
-      )}
-    </div>
-  );
-}
-
-function ItemsCard({ s, cert }: { s: AppState; cert: Certificate }) {
-  const course = s.courses.find((c) => c.id === cert.courseId)!;
-  const items = requiredItems(cert, course);
-  if (cert.state === "Legacy" || cert.state === "Revoked") return null;
-  if (items.length === 0)
-    return (
-      <section className="panel p-5 text-sm text-muted-foreground">
-        This course has no assessment. Your certificate is Completed.
-      </section>
-    );
-  const missing = missingItems(cert, course);
-  const anyLocked = items.some((i) => isLocked(cert.results[i.key]));
-  const fg = finalGrade(items, cert.results);
-
-  return (
-    <>
-      {cert.state === "Completed" && missing.length > 0 && (
-        <section className="panel-warning p-5">
-          <h3 className="flex items-center gap-2 font-semibold">
-            <AlertCircle className="h-4 w-4 text-warning" /> Missing for Verified
-          </h3>
-          <ul className="mt-2 space-y-1 text-sm">
-            {missing.map((i) => {
-              const r = cert.results[i.key];
-              return (
-                <li key={i.key}>
-                  • {i.label} ({itemTypeLabel(i)}):{" "}
-                  {r?.score === null || r === undefined ? "not taken" : `best ${r.score}%, needs 70%`}
-                  {isLocked(r) && <span className="text-destructive"> — locked</span>}
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-3 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Completed</span> means you finished the course.{" "}
-            <span className="font-medium text-foreground">Verified</span> means you passed every required item with
-            70% or more. Pass the missing items and your certificate becomes Verified on the same ID.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              variant="brand"
-              size="sm"
-              onClick={() => {
-                const res = act((d) => simulatePassRemaining(d, cert.id));
-                if (res.skippedLocked.length)
-                  toast.warning(`${res.skippedLocked.join(", ")} is locked. Retake the course first.`);
-                else toast.success("Remaining items passed.");
-              }}
-            >
-              <Sparkles /> Simulate passing remaining items
-            </Button>
-            {anyLocked && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  act((d) => retakeCourse(d, cert.id));
-                  toast.success("Course retaken. Attempts reset.");
-                }}
-              >
-                <RotateCcw /> Retake course
-              </Button>
-            )}
-          </div>
-        </section>
-      )}
-
-      <section className="panel overflow-hidden">
-        <div className="flex items-center justify-between p-5 pb-3">
-          <h3 className="font-semibold">Required items</h3>
-          <span className="text-sm text-muted-foreground">
-            Final grade <span className="font-mono font-semibold text-foreground">{fg}%</span>
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="text-right">Score</TableHead>
-                <TableHead>Band</TableHead>
-                <TableHead className="text-right">Used</TableHead>
-                <TableHead className="text-right">Left</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((i) => {
-                const r = cert.results[i.key];
-                const locked = isLocked(r);
-                return (
-                  <TableRow key={i.key}>
-                    <TableCell>
-                      <p className="font-medium">{i.label}</p>
-                      <p className="text-xs text-muted-foreground">{itemTypeLabel(i)}</p>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{r?.score ?? "—"}</TableCell>
-                    <TableCell>
-                      <BandBadge score={r?.score ?? null} />
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{r?.attempts ?? 0}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {locked ? (
-                        <span className="inline-flex items-center gap-1 text-destructive">
-                          <Lock className="h-3 w-3" /> 0
-                        </span>
-                      ) : (
-                        attemptsLeft(r)
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {!isPassed(r) && !locked && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            act((d) => simulateFailedAttempt(d, cert.id, i.key));
-                            toast("Failed attempt recorded. Your certificate level does not change.");
-                          }}
-                        >
-                          Simulate fail
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-        <p className="border-t border-border p-4 text-xs text-muted-foreground">
-          Best attempt counts. 5 attempts per item; after 5 failed attempts the item locks until you retake the course.
-        </p>
-      </section>
-    </>
   );
 }
 
 function SharingCard({ learner }: { learner: Learner }) {
   const isPublic = learner.sharing === "public";
   return (
-    <section id="sharing" className="panel scroll-mt-20 p-5">
-      <h3 className="font-semibold">Sharing setting</h3>
-      <p className="mt-1 text-sm text-muted-foreground">One setting for all your certificates.</p>
-      <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-muted/60 p-3">
+    <section id="sharing" className="panel scroll-mt-20 p-5 sm:p-6">
+      <div className="flex items-center gap-2">
+        <Share2 className="h-4 w-4 text-primary" />
+        <h2 className="font-semibold">Share and settings</h2>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        One privacy setting for all of this learner&apos;s certificates.
+      </p>
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 p-4">
         <div>
           <p className="font-medium">{isPublic ? "Results public" : "Results private"}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {isPublic
-              ? "Any verifier can open your scores and feedback."
+              ? "Any verifier can open the scores and project feedback."
               : "Verifiers see validity and level only, and can request access."}
           </p>
         </div>
         <Switch
           checked={isPublic}
           aria-label="Results public"
-          onCheckedChange={(v) => act((d) => setSharing(d, learner.id, v ? "public" : "private"))}
+          onCheckedChange={(value) => {
+            act((d) => setSharing(d, learner.id, value ? "public" : "private"));
+            toast.success(value ? "Results are now public." : "Results are now private.");
+          }}
         />
       </div>
+      <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+        Private hides evidence but keeps validity and level visible. Access requests are listed on
+        the right.
+      </p>
     </section>
   );
 }
 
-function RequestsInbox({ s, learner }: { s: AppState; learner: Learner }) {
-  const reqs = s.accessRequests
-    .filter((r) => r.learnerId === learner.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+function RequestsInbox({
+  requests,
+  today,
+  courseNameForRequest,
+  onApprove,
+  onDecline,
+}: {
+  requests: AccessRequest[];
+  today: string;
+  courseNameForRequest: (request: AccessRequest) => string;
+  onApprove: (request: AccessRequest) => void;
+  onDecline: (request: AccessRequest) => void;
+}) {
+  const pending = requests.filter(
+    (request) => effectiveStatus(request, today) === "pending",
+  ).length;
   return (
     <section className="panel p-5">
-      <h3 className="flex items-center gap-2 font-semibold">
-        <Inbox className="h-4 w-4 text-primary" /> Access requests
-      </h3>
-      {reqs.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">No one has asked to see your results.</p>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Inbox className="h-4 w-4 text-primary" /> Access requests
+        </h2>
+        <Badge variant={pending ? "warning" : "muted"}>{pending} pending</Badge>
+      </div>
+      {requests.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          No one has asked to see this learner&apos;s results yet.
+        </p>
       ) : (
         <ul className="mt-3 space-y-3">
-          {reqs.map((r) => {
-            const st = effectiveStatus(r, s.today);
-            const exp = requestExpiry(r);
+          {requests.map((request) => {
+            const status = effectiveStatus(request, today);
+            const expiry = requestExpiry(request);
             return (
-              <li key={r.id} className="rounded-lg border border-border p-3 text-sm">
+              <li key={request.id} className="rounded-xl border border-border p-3 text-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{r.requester}</p>
-                    <p className="truncate text-xs text-muted-foreground">{r.email}</p>
+                    <p className="truncate font-medium">{request.requester}</p>
+                    <p className="truncate text-xs text-muted-foreground">{request.email}</p>
                   </div>
-                  <StatusBadge status={st} />
+                  <StatusBadge status={status} />
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Asked {formatDate(r.createdAt)}
-                  {exp && st !== "expired" && ` · ${st === "approved" ? "access until" : "expires"} ${formatDate(exp)}`}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Results for{" "}
+                  <span className="font-medium text-foreground">
+                    {courseNameForRequest(request)}
+                  </span>
                 </p>
-                {st === "pending" && (
-                  <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="success" onClick={() => act((d) => decideRequest(d, r.id, true))}>
+                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  <Clock3 className="h-3 w-3" />
+                  {status === "pending" &&
+                    `Sent ${formatDate(request.createdAt)} · ${sentLabel(request.createdAt, today)} · expires ${formatDate(addDays(request.createdAt, 14))}`}
+                  {status === "approved" &&
+                    `Approved ${formatDate(request.decidedAt ?? request.createdAt)}${expiry ? ` · until ${formatDate(expiry)}` : ""}`}
+                  {(status === "declined" || status === "expired") &&
+                    `Updated ${formatDate(request.decidedAt ?? request.createdAt)}`}
+                </p>
+                {status === "pending" && (
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" variant="success" onClick={() => onApprove(request)}>
                       <Check /> Approve
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => act((d) => decideRequest(d, r.id, false))}>
+                    <Button size="sm" variant="outline" onClick={() => onDecline(request)}>
                       <X /> Decline
                     </Button>
                   </div>
@@ -430,4 +490,65 @@ function RequestsInbox({ s, learner }: { s: AppState; learner: Learner }) {
       )}
     </section>
   );
+}
+
+function CertificateDialog({
+  cert,
+  s,
+  open,
+  onOpenChange,
+}: {
+  cert: Certificate;
+  s: AppState;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const course = s.courses.find((entry) => entry.id === cert.courseId)!;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Your certificate</DialogTitle>
+          <DialogDescription>
+            {course.name} · Certificate ID {cert.id}
+          </DialogDescription>
+        </DialogHeader>
+        <CertificatePreview
+          learnerName={cert.learnerName}
+          courseName={course.name}
+          certId={cert.id}
+          issuedAt={cert.issuedAt}
+          state={cert.state}
+        />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button
+            variant="brand"
+            onClick={() => toast("Certificate download is mocked in this prototype.")}
+          >
+            <Download /> Download certificate
+          </Button>
+          <Button onClick={() => toast("LinkedIn sharing is mocked in this prototype.")}>
+            <Linkedin /> Add to LinkedIn profile
+          </Button>
+        </div>
+        <p className="text-center text-[11px] text-muted-foreground">
+          This preview is what the learner can share. Verifiers never see these actions.
+        </p>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function sentLabel(createdAt: string, today: string) {
+  const days = daysBetween(createdAt, today);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
+function daysBetween(from: string, to: string) {
+  const start = Date.parse(`${from.slice(0, 10)}T00:00:00Z`);
+  const end = Date.parse(`${to.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end)) return 0;
+  return Math.round((end - start) / 86_400_000);
 }

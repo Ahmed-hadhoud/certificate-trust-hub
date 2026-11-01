@@ -93,8 +93,8 @@ export function FoundResult({ cert, s }: { cert: Certificate; s: AppState }) {
         learnerName={cert.learnerName}
         courseName={course.name}
         certId={cert.id}
-        code={cert.code}
-        verified={cert.state === "Verified"}
+        issuedAt={cert.issuedAt}
+        state={cert.state}
       />
       <div className="grid gap-3 sm:grid-cols-2">
         <Button variant="brand" size="lg" onClick={() => toast("Download is a mock in this prototype.")}>
