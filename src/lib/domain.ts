@@ -29,7 +29,7 @@ export const LEGACY_POLICY_TEXT =
 export const DISCLOSURE_TEXT =
   "Your results are public by default. Anyone who has your certificate ID or QR can see your scores and project feedback. You can switch to private at any time in your profile settings.";
 export const NOT_FOUND_TEXT =
-  "We could not find a certificate with this ID or code. Check the characters and try again, or contact Career-180.";
+  "We could not find a certificate with this ID. Check the digits and try again, or contact Career-180.";
 
 // ---------- Dates (ISO yyyy-mm-dd strings, UTC) ----------
 export function addDays(date: string, days: number): string {
@@ -133,13 +133,12 @@ export function policyInForce(policies: Policy[], date: string): Policy {
 
 // ---------- Lookup ----------
 export function normalizeQuery(q: string): string {
-  return q.trim().toUpperCase().replace(/[\s-]/g, "");
+  return q.replace(/\D/g, "");
 }
 export function findCertificate(state: AppState, query: string): Certificate | null {
   const q = normalizeQuery(query);
-  if (/^\d{6}$/.test(q)) return state.certificates.find((c) => c.id === q) ?? null;
-  if (q.length === 8) return state.certificates.find((c) => c.code === q) ?? null;
-  return null;
+  if (!q) return null;
+  return state.certificates.find((c) => c.id === q) ?? null;
 }
 
 /** Slowdown: after 5 Not found lookups within 60s, block for 30s. */

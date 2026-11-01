@@ -54,7 +54,6 @@ export interface HistoryEntry {
 
 export interface Certificate {
   id: string;
-  code: string;
   learnerId: string;
   courseId: string;
   courseVersion: number;

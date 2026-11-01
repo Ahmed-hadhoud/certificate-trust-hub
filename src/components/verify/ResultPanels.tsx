@@ -4,16 +4,13 @@ import {
   Building2,
   CheckCircle2,
   Clock,
-  Download,
   Eye,
   History,
-  Linkedin,
   Lock,
   Sparkles,
   User,
   XCircle,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,14 +93,6 @@ export function FoundResult({ cert, s }: { cert: Certificate; s: AppState }) {
         issuedAt={cert.issuedAt}
         state={cert.state}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Button variant="brand" size="lg" onClick={() => toast("Download is a mock in this prototype.")}>
-          <Download /> Download Certificate
-        </Button>
-        <Button size="lg" onClick={() => toast("Add to LinkedIn is a mock in this prototype.")}>
-          <Linkedin /> Add to LinkedIn Profile
-        </Button>
-      </div>
 
       <TrustCard cert={cert} s={s} />
       <div className="flex justify-center">
@@ -144,10 +133,10 @@ export function TrustCard({ cert, s }: { cert: Certificate; s: AppState }) {
           </dd>
         </div>
         <div>
-          <dt className="text-xs uppercase tracking-wider text-muted-foreground">Certificate ID · short code</dt>
-          <dd className="mt-1.5 font-mono font-medium">
-            {cert.id} · {cert.code}
-          </dd>
+          <dt className="text-xs uppercase tracking-wider text-muted-foreground">
+            Certificate ID
+          </dt>
+          <dd className="mt-1.5 font-mono font-medium">{cert.id}</dd>
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wider text-muted-foreground">Issued</dt>

@@ -26,7 +26,6 @@ export function toCsv(rows: Record<string, unknown>[]): string {
 export function exportTables(s: AppState) {
   const certificates = s.certificates.map((c) => ({
     id: c.id,
-    code: c.code,
     learner: c.learnerName,
     learnerId: c.learnerId,
     courseId: c.courseId,
