@@ -7,7 +7,6 @@ import {
   Clock3,
   Download,
   Eye,
-  Inbox,
   Linkedin,
   Share2,
   ShieldCheck,
@@ -40,12 +39,11 @@ import {
   markPolicyBannerSeen,
   setSharing,
 } from "@/lib/actions";
-import { addDays, effectiveStatus, formatDate, latestPolicy, requestExpiry } from "@/lib/domain";
+import { addDays, effectiveStatus, formatDate, latestPolicy } from "@/lib/domain";
 import type { AccessRequest, AppState, Certificate, Learner } from "@/lib/types";
 import { CertificatePreview } from "@/components/verify/CertificatePreview";
 import { LevelBadge } from "@/components/verify/LevelBadge";
 import { NewerVersionNotice, SourceBadge } from "@/components/verify/ResultPanels";
-import { StatusBadge } from "@/components/site/StatusBadges";
 
 type Search = { learner?: string };
 
@@ -166,26 +164,15 @@ function LearnerPage() {
 
       <PolicyBanner s={s} learner={learner} />
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-5">
-          {cert ? (
-            <CertificatesCard cert={cert} s={s} onOpen={() => setCertificateOpen(true)} />
-          ) : (
-            <section className="panel p-6 text-sm text-muted-foreground">
-              No certificate is attached to this learner yet.
-            </section>
-          )}
-          <SharingCard learner={learner} />
-        </div>
-        <div className="space-y-5">
-          <RequestsInbox
-            requests={requests}
-            today={s.today}
-            courseNameForRequest={courseNameForRequest}
-            onApprove={approveRequest}
-            onDecline={declineRequest}
-          />
-        </div>
+      <div className="mt-6 grid gap-5">
+        {cert ? (
+          <CertificatesCard cert={cert} s={s} onOpen={() => setCertificateOpen(true)} />
+        ) : (
+          <section className="panel p-6 text-sm text-muted-foreground">
+            No certificate is attached to this learner yet.
+          </section>
+        )}
+        <SharingCard learner={learner} />
       </div>
 
       {cert && (
@@ -409,93 +396,9 @@ function SharingCard({ learner }: { learner: Learner }) {
         />
       </div>
       <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
-        Private hides evidence but keeps validity and level visible. Access requests are listed on
-        the right.
+        Private hides evidence but keeps validity and level visible. Access requests appear in the
+        banner above.
       </p>
-    </section>
-  );
-}
-
-function RequestsInbox({
-  requests,
-  today,
-  courseNameForRequest,
-  onApprove,
-  onDecline,
-}: {
-  requests: AccessRequest[];
-  today: string;
-  courseNameForRequest: (request: AccessRequest) => string;
-  onApprove: (request: AccessRequest) => void;
-  onDecline: (request: AccessRequest) => void;
-}) {
-  const pending = requests.filter(
-    (request) => effectiveStatus(request, today) === "pending",
-  ).length;
-  return (
-    <section className="panel p-5">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-semibold">
-          <Inbox className="h-4 w-4 text-primary" /> Access requests
-        </h2>
-        <Badge variant={pending ? "warning" : "muted"}>{pending} pending</Badge>
-      </div>
-      <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-2.5">
-        <Badge variant="muted" className="shrink-0">
-          Sample
-        </Badge>
-        <p className="text-[11px] leading-5 text-muted-foreground">
-          Sample of the access-request popup. It shows the same live request as the banner above.
-        </p>
-      </div>
-      {requests.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          No one has asked to see this learner&apos;s results yet.
-        </p>
-      ) : (
-        <ul className="mt-3 space-y-3">
-          {requests.map((request) => {
-            const status = effectiveStatus(request, today);
-            const expiry = requestExpiry(request);
-            return (
-              <li key={request.id} className="rounded-xl border border-border p-3 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{request.requester}</p>
-                    <p className="truncate text-xs text-muted-foreground">{request.email}</p>
-                  </div>
-                  <StatusBadge status={status} />
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Results for{" "}
-                  <span className="font-medium text-foreground">
-                    {courseNameForRequest(request)}
-                  </span>
-                </p>
-                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <Clock3 className="h-3 w-3" />
-                  {status === "pending" &&
-                    `Sent ${formatDate(request.createdAt)} · ${sentLabel(request.createdAt, today)} · expires ${formatDate(addDays(request.createdAt, 14))}`}
-                  {status === "approved" &&
-                    `Approved ${formatDate(request.decidedAt ?? request.createdAt)}${expiry ? ` · until ${formatDate(expiry)}` : ""}`}
-                  {(status === "declined" || status === "expired") &&
-                    `Updated ${formatDate(request.decidedAt ?? request.createdAt)}`}
-                </p>
-                {status === "pending" && (
-                  <div className="mt-3 flex gap-2">
-                    <Button size="sm" variant="success" onClick={() => onApprove(request)}>
-                      <Check /> Approve
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => onDecline(request)}>
-                      <X /> Decline
-                    </Button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </section>
   );
 }
